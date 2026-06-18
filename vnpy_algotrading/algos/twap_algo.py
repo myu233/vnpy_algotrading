@@ -46,6 +46,14 @@ class TwapAlgo(AlgoTemplate):
         if contract:
             self.order_volume = round_to(self.order_volume, contract.min_volume)
 
+            # 保底：当 volume 较小而 time/interval 比值较大时，
+            # 每片量 round_to 后可能归零（如 volume=1,time=120,interval=20,min_volume=1
+            # → raw=0.167 → round_to→0），导致整个执行周期空转不下单。
+            # 这里强制每片至少为 min_volume，确保能成交；总量守恒由 on_timer 中
+            # min(self.order_volume, left_volume) 保证最后一片只下剩余量。
+            if contract.min_volume > 0 and self.order_volume < contract.min_volume:
+                self.order_volume = contract.min_volume
+
         self.timer_count: int = 0
         self.total_count: int = 0
 
